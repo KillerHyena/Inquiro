@@ -5,4 +5,4 @@ python-dotenv
 gunicorn
 requests
 flask-cors
-flask-session
+Flask-Session
