@@ -232,122 +232,79 @@
 
 {% block scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Task switching functionality
-    document.querySelectorAll('.sidebar-button').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const task = this.dataset.task;
-            
-            // Hide all chat windows
-            document.querySelectorAll('.chat-window').forEach(win => {
-                win.classList.remove('active');
-            });
-            
-            // Show the selected chat window
-            document.getElementById(`chat-${task}`).classList.add('active');
-        });
+function appendMessage(role, message) {
+  const chatBox = document.querySelector(".chat-messages");
+  const msgDiv = document.createElement("div");
+  msgDiv.className = role === "user" ? "message user" : "message ai";
+  msgDiv.innerHTML = `<p>${message}</p>`;
+  chatBox.appendChild(msgDiv);
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function showProcessing() {
+  const btn = document.querySelector("#submitBtn");
+  btn.disabled = true;
+  btn.innerHTML = "🔄 Processing...";
+}
+
+function hideProcessing() {
+  const btn = document.querySelector("#submitBtn");
+  btn.disabled = false;
+  btn.innerHTML = "🚀 Submit";
+}
+
+function pollResult(sessionId) {
+  fetch(`/get_result/${sessionId}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data.status === "completed") {
+        appendMessage("ai", data.message);
+        hideProcessing();
+      } else if (data.status === "error") {
+        appendMessage("ai", `❌ ${data.message}`);
+        hideProcessing();
+      } else {
+        setTimeout(() => pollResult(sessionId), 2000); // try again after 2s
+      }
+    })
+    .catch(err => {
+      console.error("Polling failed:", err);
+      appendMessage("ai", "⚠️ Something went wrong while getting the result.");
+      hideProcessing();
     });
-    
-    // Character counter for textareas
-    const textareas = document.querySelectorAll('textarea');
-    textareas.forEach(textarea => {
-        const counter = textarea.parentNode.querySelector('.char-counter');
-        
-        textarea.addEventListener('input', function() {
-            const currentLength = this.value.length;
-            counter.textContent = `${currentLength}/2000`;
-            
-            if (currentLength > 2000) {
-                this.value = this.value.substring(0, 2000);
-                counter.textContent = '2000/2000';
-            }
-        });
+}
+
+document.querySelector("#chatForm").addEventListener("submit", function (e) {
+  e.preventDefault();
+  const input = document.querySelector("#userInput");
+  const value = input.value.trim();
+  if (!value) return;
+
+  appendMessage("user", value);
+  showProcessing();
+
+  const formData = new FormData(this);
+
+  fetch("/process", {
+    method: "POST",
+    body: formData
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (data.status === "queued") {
+        pollResult(data.session_id);
+      } else if (data.error) {
+        appendMessage("ai", `❌ ${data.error}`);
+        hideProcessing();
+      }
+    })
+    .catch(err => {
+      console.error("Request failed:", err);
+      appendMessage("ai", "⚠️ Server error occurred.");
+      hideProcessing();
     });
-    
-    // Form submission handling
-    const forms = document.querySelectorAll('.chat-form');
-    forms.forEach(form => {
-        form.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const task = this.dataset.task;
-            const button = this.querySelector('button[type="submit"]');
-            const textarea = this.querySelector('textarea');
-            const indicator = document.getElementById(`thinking-${task}`);
-            const chatHistory = this.closest('.chat-window').querySelector('.chat-history');
-            
-            // Show processing indicator
-            if (indicator) {
-                indicator.style.display = 'block';
-            }
-            
-            // Disable button
-            if (button) {
-                button.innerHTML = '<i class="bi-arrow-repeat"></i> Processing...';
-                button.disabled = true;
-            }
-            
-            try {
-                // Create user message bubble
-                const userMessage = document.createElement('div');
-                userMessage.className = 'message user';
-                userMessage.innerHTML = `
-                    <div class="avatar">
-                        <i class="bi-person"></i>
-                    </div>
-                    <div class="bubble">
-                        ${textarea.value}
-                    </div>
-                `;
-                chatHistory.appendChild(userMessage);
-                
-                // Simulate processing (in real app, this would be an AJAX call)
-                await new Promise(resolve => setTimeout(resolve, 1500));
-                
-                // Create AI response (in real app, this would come from server)
-                const aiResponse = document.createElement('div');
-                aiResponse.className = 'message ai';
-                aiResponse.innerHTML = `
-                    <div class="avatar">
-                        <i class="bi-robot"></i>
-                    </div>
-                    <div class="bubble">
-                        Here is your ${task} response... 
-                        <div class="timestamp">Just now</div>
-                    </div>
-                `;
-                chatHistory.appendChild(aiResponse);
-                
-                // Scroll to bottom
-                chatHistory.scrollTop = chatHistory.scrollHeight;
-                
-            } catch (error) {
-                console.error('Error:', error);
-                alert('An error occurred. Please try again.');
-            } finally {
-                // Hide processing indicator
-                if (indicator) {
-                    indicator.style.display = 'none';
-                }
-                
-                // Reset button
-                if (button) {
-                    button.innerHTML = `<i class="bi-send"></i> ${button.textContent.trim()}`;
-                    button.disabled = false;
-                }
-                
-                // Clear textarea
-                textarea.value = '';
-                textarea.dispatchEvent(new Event('input'));
-            }
-        });
-    });
-    
-    // Auto-scroll to bottom of chat history
-    const chatHistories = document.querySelectorAll('.chat-history');
-    chatHistories.forEach(history => {
-        history.scrollTop = history.scrollHeight;
-    });
+
+  input.value = "";
 });
 </script>
 {% endblock %}
