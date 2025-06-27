@@ -3,53 +3,161 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inquiro - AI Assistant</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>Inquiro - Neumorphic AI Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <!-- Syntax Highlighting -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/github-dark.min.css">
+    <style>
+        /* Dynamic background effects */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 20% 30%, rgba(255,255,255,0.1) 0%, transparent 20%),
+                        radial-gradient(circle at 80% 70%, rgba(255,255,255,0.1) 0%, transparent 20%);
+            pointer-events: none;
+            z-index: -1;
+        }
+        
+        /* Task-specific background gradients */
+        [data-task="summarize"]::before {
+            background: radial-gradient(circle at 20% 30%, rgba(112, 161, 255, 0.1) 0%, transparent 20%),
+                        radial-gradient(circle at 80% 70%, rgba(112, 161, 255, 0.1) 0%, transparent 20%);
+        }
+        
+        [data-task="explain"]::before {
+            background: radial-gradient(circle at 20% 30%, rgba(255, 193, 7, 0.1) 0%, transparent 20%),
+                        radial-gradient(circle at 80% 70%, rgba(255, 193, 7, 0.1) 0%, transparent 20%);
+        }
+        
+        [data-task="translate"]::before {
+            background: radial-gradient(circle at 20% 30%, rgba(3, 169, 244, 0.1) 0%, transparent 20%),
+                        radial-gradient(circle at 80% 70%, rgba(3, 169, 244, 0.1) 0%, transparent 20%);
+        }
+        
+        [data-task="code"]::before {
+            background: radial-gradient(circle at 20% 30%, rgba(76, 175, 80, 0.1) 0%, transparent 20%),
+                        radial-gradient(circle at 80% 70%, rgba(76, 175, 80, 0.1) 0%, transparent 20%);
+        }
+        
+        [data-task="creative"]::before {
+            background: radial-gradient(circle at 20% 30%, rgba(255, 152, 0, 0.1) 0%, transparent 20%),
+                        radial-gradient(circle at 80% 70%, rgba(255, 152, 0, 0.1) 0%, transparent 20%);
+        }
+    </style>
 </head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container">
-            <a class="navbar-brand" href="/">
-                <i class="bi-robot me-2"></i>Inquiro AI Assistant
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
+<body data-task="summarize">
+    <!-- Sidebar Toggle Button -->
+    <div class="sidebar-toggle">
+        <i class="bi-list"></i>
+    </div>
+    
+    <!-- Left Sidebar Menu -->
+    <div class="sidebar">
+        <div class="sidebar-close">
+            <i class="bi-x-lg"></i>
+        </div>
+        
+        <div class="logo-container">
+            <i class="bi-robot logo-icon"></i>
+            <h1 class="logo-text">Inquiro</h1>
+        </div>
+        
+        <div class="sidebar-buttons">
+            <button class="sidebar-button active" data-task="summarize">
+                <i class="bi-file-text"></i>
+                <span>Summarize</span>
             </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="https://github.com/KillerHyena" target="_blank">
-                            <i class="bi-github me-1"></i>GitHub
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="https://www.linkedin.com/in/aaryanverma2007/" target="_blank">
-                            <i class="bi-linkedin me-1"></i>LinkedIn
-                        </a>
-                    </li>
-                </ul>
+            <button class="sidebar-button" data-task="explain">
+                <i class="bi-lightbulb"></i>
+                <span>Explain</span>
+            </button>
+            <button class="sidebar-button" data-task="translate">
+                <i class="bi-translate"></i>
+                <span>Translate</span>
+            </button>
+            <button class="sidebar-button" data-task="code">
+                <i class="bi-code-slash"></i>
+                <span>Code</span>
+            </button>
+            <button class="sidebar-button" data-task="creative">
+                <i class="bi-palette"></i>
+                <span>Creative</span>
+            </button>
+        </div>
+        
+        <div class="sidebar-footer">
+            <a href="https://github.com/KillerHyena" target="_blank">
+                <i class="bi-github"></i>
+            </a>
+            <a href="https://www.linkedin.com/in/aaryanverma2007/" target="_blank">
+                <i class="bi-linkedin"></i>
+            </a>
+            <div class="copyright">
+                © 2025 Inquiro AI
             </div>
         </div>
-    </nav>
+    </div>
 
-    <main class="container my-5">
+    <!-- Main Content Area -->
+    <main class="content-area">
         {% block content %}{% endblock %}
     </main>
 
-    <footer class="bg-light py-4 mt-5">
-        <div class="container text-center text-muted">
-            <p>Powered by OpenAI • Built with Flask</p>
-            <p class="mb-0">© 2025 Inquiro AI Assistant</p>
-        </div>
-    </footer>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>hljs.highlightAll();</script>
+    <script>
+        // Task switching functionality
+        document.querySelectorAll('.sidebar-button').forEach(btn => {
+            btn.addEventListener('click', function() {
+                // Remove active class from all buttons
+                document.querySelectorAll('.sidebar-button').forEach(b => b.classList.remove('active'));
+                
+                // Add active class to clicked button
+                this.classList.add('active');
+                
+                // Update data-task attribute on body
+                const task = this.dataset.task;
+                document.body.setAttribute('data-task', task);
+                
+                // Close sidebar on mobile
+                if (window.innerWidth < 900) {
+                    document.querySelector('.sidebar').classList.remove('open');
+                    document.querySelector('.content-area').classList.remove('shifted');
+                }
+            });
+        });
+        
+        // Sidebar toggle functionality
+        document.querySelector('.sidebar-toggle').addEventListener('click', function() {
+            document.querySelector('.sidebar').classList.toggle('open');
+            document.querySelector('.content-area').classList.toggle('shifted');
+        });
+        
+        document.querySelector('.sidebar-close').addEventListener('click', function() {
+            document.querySelector('.sidebar').classList.remove('open');
+            document.querySelector('.content-area').classList.remove('shifted');
+        });
+        
+        // Close sidebar when clicking outside
+        document.addEventListener('click', function(event) {
+            const sidebar = document.querySelector('.sidebar');
+            const toggleBtn = document.querySelector('.sidebar-toggle');
+            
+            if (sidebar.classList.contains('open') && 
+                !sidebar.contains(event.target) && 
+                event.target !== toggleBtn &&
+                !toggleBtn.contains(event.target)) {
+                sidebar.classList.remove('open');
+                document.querySelector('.content-area').classList.remove('shifted');
+            }
+        });
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

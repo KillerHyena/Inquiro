@@ -4,93 +4,59 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Processing Request - Inquiro AI Assistant</title>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-    <!-- Custom CSS -->
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
 </head>
-<body class="processing-container">
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-md-8 col-lg-6">
-                <div class="card processing-card pulse">
-                    <div class="card-header text-center">
-                        <h2 class="mb-0"><i class="bi bi-cpu me-2"></i>Processing Your Request</h2>
-                    </div>
-                    <div class="card-body text-center">
-                        <!-- Animated spinner -->
-                        <div class="spinner-container">
-                            <div class="spinner-border text-primary" role="status"></div>
-                            <div class="spinner-border text-secondary" role="status"></div>
-                            <div class="spinner-border text-info" role="status"></div>
-                        </div>
-                        
-                        <!-- Dynamic status text -->
-                        <p class="status-text mt-3">We're working on your request with our AI engine</p>
-                        
-                        <!-- Progress bar -->
-                        <div class="progress mt-4">
-                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
-                                id="progress-bar" 
-                                role="progressbar" 
-                                style="width: 0%">
-                            </div>
-                        </div>
-                        
-                        <!-- Status badges -->
-                        <div class="d-flex flex-column flex-md-row justify-content-center gap-3 mt-4">
-                            <div class="queue-badge bg-primary">
-                                <i class="bi bi-arrow-left-right me-1"></i> 
-                                <span>Queue Position:</span>
-                                <strong id="queue-pos">{{ queue_position }}</strong>
-                            </div>
-                            <div class="queue-badge bg-info">
-                                <i class="bi bi-lightning me-1"></i> 
-                                <span>Status:</span>
-                                <strong id="status-text">Processing</strong>
-                            </div>
-                        </div>
-                        
-                        <!-- Estimated time -->
-                        <div class="mt-4">
-                            <div class="time-estimate">
-                                <i class="bi bi-clock me-1"></i>
-                                <span>Estimated time remaining:</span>
-                                <strong id="time-remaining">20-40 seconds</strong>
-                            </div>
-                        </div>
-                        
-                        <!-- Info notice -->
-                        <div class="alert alert-light mt-4">
-                            <i class="bi bi-info-circle me-1"></i> 
-                            Please keep this page open. Closing it will cancel your request.
-                        </div>
-                        
-                        <!-- Cancel button -->
-                        <button id="cancel-btn" class="btn btn-outline-danger mt-3">
-                            <i class="bi bi-x-circle me-1"></i>Cancel Request
-                        </button>
-                    </div>
+<body>
+    <div class="processing-container">
+        <div class="thinking-loader">
+            <div class="brain-animation">
+                <div class="brain-part part1"></div>
+                <div class="brain-part part2"></div>
+                <div class="brain-part part3"></div>
+                <div class="brain-part part4"></div>
+            </div>
+            
+            <h2>Inquiro is thinking... 🧠</h2>
+            <p class="status-text">Processing your request with our AI engine</p>
+            
+            <div class="progress-info">
+                <div class="queue-position">
+                    <i class="bi-list-ol"></i>
+                    <span>Position in queue:</span>
+                    <strong>{{ queue_position }}</strong>
+                </div>
+                
+                <div class="time-estimate">
+                    <i class="bi-clock"></i>
+                    <span>Estimated time:</span>
+                    <strong>15-30 seconds</strong>
                 </div>
             </div>
+            
+            <div class="loader-bars">
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+            </div>
+            
+            <div class="notice">
+                <i class="bi-info-circle"></i>
+                Please keep this page open. It will automatically refresh when ready.
+            </div>
+            
+            <button id="cancel-btn" class="neumorphic-btn">
+                <i class="bi-x-circle"></i> Cancel Request
+            </button>
         </div>
     </div>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // Get session ID from template
         const sessionId = "{{ session_id }}";
-        
-        // Initialize progress bar animation
-        let progress = 0;
-        const progressBar = document.getElementById('progress-bar');
-        const progressInterval = setInterval(() => {
-            progress = Math.min(progress + 0.5, 90); // Cap at 90% until completion
-            progressBar.style.width = `${progress}%`;
-        }, 300);
         
         // Function to check request status
         function checkStatus() {
@@ -99,42 +65,16 @@
                 .then(html => {
                     // If the response contains the result page, redirect to it
                     if (html.includes('result.html')) {
-                        clearInterval(progressInterval);
-                        progressBar.style.width = '100%';
-                        setTimeout(() => {
-                            window.location.href = `/result/${sessionId}`;
-                        }, 500);
+                        window.location.href = `/result/${sessionId}`;
                     } else {
-                        // Update queue position if available
-                        const queueMatch = html.match(/id="queue-position".*?(\d+)/);
-                        if (queueMatch) {
-                            const queuePos = parseInt(queueMatch[1]);
-                            document.getElementById('queue-pos').textContent = queuePos;
-                            
-                            // Update time estimate based on queue position
-                            updateTimeEstimate(queuePos);
-                        }
-                        
                         // Continue checking every 3 seconds
                         setTimeout(checkStatus, 3000);
                     }
                 })
                 .catch(error => {
                     console.error('Status check error:', error);
-                    document.getElementById('status-text').textContent = 'Connection issue';
-                    document.getElementById('status-text').className = 'text-danger';
                     setTimeout(checkStatus, 5000);
                 });
-        }
-        
-        // Update time estimate based on queue position
-        function updateTimeEstimate(queuePosition) {
-            const timeRemaining = document.getElementById('time-remaining');
-            const baseTime = 20;
-            const extraPerPosition = 5;
-            const totalSeconds = baseTime + (queuePosition * extraPerPosition);
-            
-            timeRemaining.textContent = `${totalSeconds}-${totalSeconds + 20} seconds`;
         }
         
         // Cancel request functionality
@@ -151,28 +91,31 @@
         });
         
         // Animated status text effect
-        const statusText = document.getElementById('status-text');
+        const statusText = document.querySelector('.status-text');
         const statuses = [
-            {text: 'Processing', icon: 'bi-cpu'},
-            {text: 'Analyzing', icon: 'bi-search'},
-            {text: 'Generating', icon: 'bi-lightning'},
-            {text: 'Finalizing', icon: 'bi-check-circle'}
+            "Analyzing your request...",
+            "Processing with AI...",
+            "Generating response...",
+            "Finalizing output...",
+            "Almost there..."
         ];
         
         let statusIndex = 0;
         function rotateStatus() {
             statusIndex = (statusIndex + 1) % statuses.length;
-            const currentStatus = statuses[statusIndex];
-            statusText.innerHTML = `<i class="bi ${currentStatus.icon} me-1"></i>${currentStatus.text}`;
+            statusText.textContent = statuses[statusIndex];
         }
-        
-        // Initial time estimate
-        updateTimeEstimate("{{ queue_position }}");
         
         // Start status checks and animations
         setTimeout(checkStatus, 3000);
         setInterval(rotateStatus, 2000);
         rotateStatus(); // Initial call
+        
+        // Animate loader bars
+        const bars = document.querySelectorAll('.loader-bars .bar');
+        bars.forEach((bar, index) => {
+            bar.style.animationDelay = `${index * 0.2}s`;
+        });
     </script>
 </body>
 </html>

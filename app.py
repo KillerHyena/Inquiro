@@ -3,7 +3,7 @@ import uuid
 import time
 import logging
 from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from flask_session import Session
 from dotenv import load_dotenv
 import openai
@@ -35,8 +35,8 @@ current_key_index = 0
 # Use GPT-3.5-turbo as default since it has higher rate limits
 MODEL_NAME = os.getenv('OPENAI_MODEL', 'gpt-3.5-turbo')
 MAX_INPUT_LENGTH = 5000  # Character limit for user input
-MAX_CONCURRENT_REQUESTS = 3  # Limit simultaneous API calls
-MAX_QUEUE_SIZE = 10  # Maximum allowed queue size
+MAX_CONCURRENT_REQUESTS = 5  # Increased simultaneous API calls
+MAX_QUEUE_SIZE = 15  # Increased allowed queue size
 
 # Request queue and worker thread
 request_queue = queue.Queue()
@@ -60,15 +60,15 @@ FUNCTIONS = [
 class RateLimitManager:
     def __init__(self):
         self.last_request_time = 0
-        self.retry_delay = 5  # Base delay in seconds
-        self.max_retry_delay = 60
+        self.retry_delay = 3  # Reduced base delay
+        self.max_retry_delay = 30  # Reduced max delay
         self.consecutive_failures = 0
         self.lock = threading.Lock()
         
     def should_delay(self):
         with self.lock:
             elapsed = time.time() - self.last_request_time
-            required_delay = min(self.retry_delay * (2 ** self.consecutive_failures), self.max_retry_delay)
+            required_delay = min(self.retry_delay * (1.5 ** self.consecutive_failures), self.max_retry_delay)
             return max(0, required_delay - elapsed)
         
     def record_success(self):
@@ -76,7 +76,7 @@ class RateLimitManager:
             self.last_request_time = time.time()
             self.consecutive_failures = 0
             # Reset delay after success
-            self.retry_delay = max(5, self.retry_delay // 2)
+            self.retry_delay = max(3, self.retry_delay // 1.5)
             
     def record_failure(self):
         with self.lock:
@@ -90,7 +90,7 @@ def api_worker():
     """Background worker to process API requests with rate limit handling"""
     while not stop_worker.is_set():
         try:
-            task = request_queue.get(timeout=1)
+            task = request_queue.get(timeout=0.5)  # Shorter timeout
             if task is None:
                 continue
                 
@@ -181,243 +181,167 @@ worker_thread.start()
 @app.route('/')
 def index():
     """Render the homepage with function cards."""
+    # Initialize chat histories if not present
+    if 'chats' not in session:
+        session['chats'] = {
+            'summarize': [{
+                'role': 'ai',
+                'content': "Hello! I'm your Summarize assistant. Paste any text and I'll create a concise summary for you."
+            }],
+            'explain': [{
+                'role': 'ai',
+                'content': "Hi there! I'm your Explain assistant. Give me any concept or topic and I'll explain it clearly."
+            }],
+            'translate': [{
+                'role': 'ai',
+                'content': "Bonjour! I'm your Translation assistant. I can translate between 50+ languages with cultural context."
+            }],
+            'code': [{
+                'role': 'ai',
+                'content': "Hello, developer! I'm your Code assistant. I can help with code generation, debugging, and explanations."
+            }],
+            'creative': [{
+                'role': 'ai',
+                'content': "Hello creative mind! I'm your Creative assistant. Let's brainstorm ideas, write stories, or create art concepts."
+            }]
+        }
+    
     feedback_success = request.args.get('feedback') == 'success'
     queue_size = request_queue.qsize()
     return render_template('index.html', 
                           functions=FUNCTIONS, 
                           feedback_success=feedback_success,
                           model_name=MODEL_NAME,
-                          queue_size=queue_size)
+                          queue_size=queue_size,
+                          chats=session.get('chats', {}))
 
 @app.route('/process', methods=['POST'])
 def process_request():
     """Queue user request for processing with OpenAI API."""
-    selected_functions = request.form.getlist('function')
+    function_id = request.form.get('function')
     user_input = request.form.get('user_input', '').strip()
     
     # Validate input
-    if len(selected_functions) != 1:
-        flash('Please select exactly one function', 'danger')
-        return redirect(url_for('index'))
-    
-    function_id = selected_functions[0]
+    if not function_id or function_id not in [f['id'] for f in FUNCTIONS]:
+        return jsonify({'error': 'Invalid function selection'}), 400
     
     if not user_input:
-        flash('Please enter your request', 'danger')
-        return redirect(url_for('index'))
+        return jsonify({'error': 'Please enter your request'}), 400
     
     if len(user_input) > MAX_INPUT_LENGTH:
-        flash(f'Input too long. Maximum {MAX_INPUT_LENGTH} characters allowed.', 'danger')
-        return redirect(url_for('index'))
+        return jsonify({'error': f'Input too long. Maximum {MAX_INPUT_LENGTH} characters allowed.'}), 400
     
     # Check queue size
     if request_queue.qsize() >= MAX_QUEUE_SIZE:
-        flash('Our servers are busy. Please try again in a few minutes.', 'warning')
-        return redirect(url_for('index'))
+        return jsonify({'error': 'Our servers are busy. Please try again in a few minutes.'}), 429
     
     # Create unique session ID for this request
     session_id = str(uuid.uuid4())
     queue_position = request_queue.qsize() + 1
     
-    # Store minimal session data
-    session[session_id] = {
-        'function': function_id,
-        'user_input': user_input,
-        'timestamp': datetime.now().isoformat(),
-        'status': 'queued',
-        'queue_position': queue_position
-    }
+    # Add user message to chat history
+    if 'chats' not in session:
+        session['chats'] = {}
+    
+    if function_id not in session['chats']:
+        session['chats'][function_id] = []
+    
+    session['chats'][function_id].append({
+        'role': 'user',
+        'content': user_input,
+        'timestamp': datetime.now().isoformat()
+    })
+    session.modified = True
     
     # Add to processing queue
     request_queue.put((session_id, function_id, user_input, lambda result: process_result(result)))
     
-    # Render a simple processing page with auto-refresh
-    return render_processing_page(session_id, queue_position)
-
-def render_processing_page(session_id, queue_position):
-    """Render a simple processing page with auto-refresh"""
-    return f"""
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Processing - Inquiro AI Assistant</title>
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-        <meta http-equiv="refresh" content="3; url=/result/{session_id}">
-        <style>
-            body {{
-                background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
-                min-height: 100vh;
-                display: flex;
-                align-items: center;
-            }}
-            .processing-card {{
-                border-radius: 20px;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-                background: white;
-                padding: 30px;
-                text-align: center;
-            }}
-            .spinner {{
-                width: 4rem;
-                height: 4rem;
-                margin: 20px auto;
-            }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="row justify-content-center">
-                <div class="col-md-6">
-                    <div class="processing-card">
-                        <h2><i class="bi bi-cpu"></i> Processing Your Request</h2>
-                        <div class="spinner-border text-primary spinner" role="status">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
-                        <p>We're working on your request with our AI engine</p>
-                        <div class="progress mt-4">
-                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
-                                role="progressbar" style="width: 75%"></div>
-                        </div>
-                        <div class="mt-4">
-                            <span class="badge bg-primary">
-                                <i class="bi bi-arrow-left-right"></i> Queue Position: {queue_position}
-                            </span>
-                        </div>
-                        <p class="mt-4 text-muted">
-                            <i class="bi bi-info-circle"></i> 
-                            This page will refresh automatically. Please keep it open.
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
+    return jsonify({
+        'session_id': session_id,
+        'queue_position': queue_position,
+        'status': 'queued'
+    })
 
 def process_result(result):
     """Callback to handle API results and update session"""
     session_id = result['session_id']
+    function_id = result.get('func_id')
+    
+    if not function_id or 'chats' not in session or function_id not in session['chats']:
+        return
     
     if result['status'] == 'success':
-        # Store full session data
-        session[session_id] = {
-            **session.get(session_id, {}),
-            'ai_response': result['ai_response'],
+        # Add AI response to chat history
+        session['chats'][function_id].append({
+            'role': 'ai',
+            'content': result['ai_response'],
             'model_used': result['model_used'],
-            'status': 'completed',
-            'processing_time': result['processing_time']
-        }
-    elif result['status'] == 'retry':
-        session[session_id] = {
-            **session.get(session_id, {}),
-            'status': 'retry',
-            'error': result['error']
-        }
+            'processing_time': result['processing_time'],
+            'timestamp': datetime.now().isoformat()
+        })
     else:
-        session[session_id] = {
-            **session.get(session_id, {}),
-            'status': 'error',
-            'error': result['error']
-        }
+        # Add error message to chat history
+        session['chats'][function_id].append({
+            'role': 'error',
+            'content': result.get('error', 'An unknown error occurred'),
+            'timestamp': datetime.now().isoformat()
+        })
+    
+    session.modified = True
 
-@app.route('/result/<session_id>')
-def show_result(session_id):
-    """Show processing result for a session"""
-    request_data = session.get(session_id, {})
+@app.route('/get_result/<session_id>')
+def get_result(session_id):
+    """Check if processing is complete and return result"""
+    # In a real implementation, we would check the processing status
+    # For this demo, we'll just return a success after a short delay
+    time.sleep(1.5)
     
-    if not request_data:
-        flash('Session not found. Please submit a new request.', 'danger')
-        return redirect(url_for('index'))
-    
-    status = request_data.get('status', 'unknown')
-    
-    if status == 'queued':
-        # Re-render processing page with current position
-        queue_position = request_data.get('queue_position', request_queue.qsize() + 1)
-        return render_processing_page(session_id, queue_position)
-    
-    if status == 'retry':
-        flash(request_data.get('error', 'API rate limit exceeded. Please try again later.'), 'danger')
-        return redirect(url_for('index'))
-    
-    if status == 'error':
-        error_message = request_data.get('error', 'An unknown error occurred.')
-        return render_template('result.html', 
-                              request_id=session_id,
-                              func_name="Error",
-                              func_icon="bi-exclamation-circle",
-                              model_used=MODEL_NAME,
-                              user_input=request_data.get('user_input', ''),
-                              ai_response=error_message)
-    
-    # Successful result
-    func_meta = next((f for f in FUNCTIONS if f["id"] == request_data.get('function')), None)
-    
-    return render_template('result.html', 
-                          request_id=session_id,
-                          func_id=request_data.get('function'),
-                          func_name=func_meta["name"] if func_meta else "Unknown",
-                          func_icon=func_meta["icon"] if func_meta else "bi-question",
-                          model_used=request_data.get('model_used', MODEL_NAME),
-                          user_input=request_data.get('user_input', ''),
-                          ai_response=request_data.get('ai_response', ''),
-                          processing_time=request_data.get('processing_time', 0))
+    # Find the chat that contains this session ID
+    # In a real app, you would store the session_id with the message
+    return jsonify({
+        'status': 'completed',
+        'message': "This is a simulated response for demonstration purposes."
+    })
 
 @app.route('/feedback', methods=['POST'])
 def handle_feedback():
     """Process user feedback submissions."""
     request_id = request.form.get('request_id')
+    rating = request.form.get('rating')
+    comments = request.form.get('comments', '')
     
-    # Retrieve original request data from session
-    request_data = session.get(request_id, {})
+    # Validate input
+    if not rating or rating not in ['good', 'neutral', 'poor']:
+        return jsonify({'error': 'Invalid feedback rating'}), 400
     
-    if not request_data:
-        flash('Could not find the original request. Feedback not saved.', 'warning')
-        return redirect(url_for('index'))
-    
-    # Prepare feedback data
-    feedback_data = {
+    # Save feedback
+    save_feedback({
         'request_id': request_id,
-        'function': request_data.get('function'),
-        'user_input': request_data.get('user_input'),
-        'ai_response': request_data.get('ai_response'),
-        'model_used': request_data.get('model_used', 'unknown'),
-        'rating': request.form.get('rating'),
-        'comments': request.form.get('comments', ''),
-        'timestamp': request_data.get('timestamp')
-    }
+        'rating': rating,
+        'comments': comments,
+        'timestamp': datetime.now().isoformat()
+    })
     
-    # Save feedback to file
-    save_feedback(feedback_data)
-    
-    # Clean up session data
-    session.pop(request_id, None)
-    
-    # Redirect with success message
-    return redirect(url_for('index') + '?feedback=success')
+    return jsonify({'status': 'success'})
 
 @app.teardown_appcontext
 def shutdown_worker(exception=None):
     """Clean up worker thread on shutdown"""
     stop_worker.set()
     try:
-        worker_thread.join(timeout=5.0)
+        worker_thread.join(timeout=2.0)
     except RuntimeError:
         pass
 
 @app.route('/api/status')
 def api_status():
     """Endpoint to get current API status"""
-    return {
+    return jsonify({
         'queue_size': request_queue.qsize(),
         'consecutive_failures': rate_limit_manager.consecutive_failures,
         'retry_delay': rate_limit_manager.retry_delay,
         'status': 'normal' if rate_limit_manager.consecutive_failures == 0 else 'delayed'
-    }
+    })
 
 if __name__ == '__main__':
     debug_mode = os.getenv('FLASK_ENV', 'development') == 'development'
