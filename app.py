@@ -249,7 +249,8 @@ def process_request():
     session['chats'][function_id].append({
         'role': 'user',
         'content': user_input,
-        'timestamp': datetime.now().isoformat()
+        'timestamp': datetime.now().isoformat(),
+        'session_id': session_id
     })
     session.modified = True
     
@@ -277,31 +278,37 @@ def process_result(result):
             'content': result['ai_response'],
             'model_used': result['model_used'],
             'processing_time': result['processing_time'],
-            'timestamp': datetime.now().isoformat()
+            'timestamp': datetime.now().isoformat(),
+            'session_id': session_id  # 👈 important
         })
     else:
         # Add error message to chat history
         session['chats'][function_id].append({
             'role': 'error',
             'content': result.get('error', 'An unknown error occurred'),
-            'timestamp': datetime.now().isoformat()
+            'timestamp': datetime.now().isoformat(),
+            'session_id': session_id
         })
     
     session.modified = True
 
 @app.route('/get_result/<session_id>')
 def get_result(session_id):
-    """Check if processing is complete and return result"""
-    # In a real implementation, we would check the processing status
-    # For this demo, we'll just return a success after a short delay
-    time.sleep(1.5)
-    
-    # Find the chat that contains this session ID
-    # In a real app, you would store the session_id with the message
-    return jsonify({
-        'status': 'completed',
-        'message': "This is a simulated response for demonstration purposes."
-    })
+    for func_id, chats in session.get('chats', {}).items():
+        for chat in reversed(chats):  # Latest first
+            if chat.get('session_id') == session_id:
+                if chat['role'] == 'ai':
+                    return jsonify({
+                        'status': 'completed',
+                        'message': chat['content']
+                    })
+                elif chat['role'] == 'error':
+                    return jsonify({
+                        'status': 'error',
+                        'message': chat['content']
+                    })
+    return jsonify({'status': 'pending'})
+
 
 @app.route('/feedback', methods=['POST'])
 def handle_feedback():
