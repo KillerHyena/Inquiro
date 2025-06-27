@@ -1,2 +1,5 @@
 # Python dependencies (Flask, OpenAI, etc.)
+flask
+openai
+python-dotenv
 gunicorn
