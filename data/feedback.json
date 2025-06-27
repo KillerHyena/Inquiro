@@ -1,0 +1,20 @@
+[
+  {
+    "request_id": "c7f3d8e0-5b9a-4e8d-ba8c-9d1f2e3a4b5c",
+    "function": "summarize",
+    "user_input": "A long article about climate change...",
+    "ai_response": "### Climate Change Summary\n- Key point 1...",
+    "rating": "good",
+    "comments": "Very concise and accurate!",
+    "timestamp": "2025-06-27T14:30:45.123456"
+  },
+  {
+    "request_id": "d8e0c7f3-4e8d-5b9a-9d1f-ba8c2e3a4b5c",
+    "function": "code",
+    "user_input": "Python function to calculate factorial",
+    "ai_response": "```python\ndef factorial(n):\n    if n == 0:\n        return 1\n    else:\n        return n * factorial(n-1)\n```",
+    "rating": "neutral",
+    "comments": "Missing iterative solution",
+    "timestamp": "2025-06-27T15:22:18.987654"
+  }
+]

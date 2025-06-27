@@ -1,0 +1,243 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <!-- Feedback success alert -->
+        {% if feedback_success %}
+        <div class="alert alert-success alert-dismissible fade show mb-4" role="alert">
+            <div class="d-flex align-items-center">
+                <i class="bi-check-circle-fill fs-4 me-2"></i>
+                <div>Thank you for your feedback! Your input helps improve the assistant.</div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endif %}
+        
+        <!-- Flash messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show mb-4" role="alert">
+                    <div class="d-flex align-items-center">
+                        <i class="bi-exclamation-triangle-fill fs-4 me-2"></i>
+                        <div>{{ message }}</div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="card shadow-sm mb-5">
+            <div class="card-header bg-white py-3">
+                <h1 class="h3 text-center mb-1">AI Assistant Toolkit</h1>
+                <p class="text-center text-muted mb-0">Select a function and enter your request</p>
+            </div>
+            <div class="card-body">
+                <form action="/process" method="POST" id="request-form">
+                    <div class="mb-4">
+                        <label class="form-label fw-bold mb-3">Select Function:</label>
+                        <div class="row g-3">
+                            {% for func in functions %}
+                            <div class="col-md-4">
+                                <div class="form-check card h-100 function-card m-0">
+                                    <input class="form-check-input" type="radio" name="function" 
+                                           id="{{ func.id }}" value="{{ func.id }}" required>
+                                    <label class="form-check-label card-body d-flex flex-column p-3" for="{{ func.id }}">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <i class="{{ func.icon }} text-primary fs-4 me-2"></i>
+                                            <h5 class="card-title mb-0">{{ func.name }}</h5>
+                                        </div>
+                                        <p class="card-text text-muted small mt-auto">{{ func.description }}</p>
+                                    </label>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="user_input" class="form-label fw-bold">Your Request:</label>
+                        <textarea class="form-control" id="user_input" name="user_input" 
+                                  rows="5" placeholder="Enter your request here..." required></textarea>
+                        <div class="d-flex justify-content-between mt-2">
+                            <div class="form-text">Be specific for better results</div>
+                            <div class="form-text"><span id="char-count">0</span>/5000 characters</div>
+                        </div>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg py-3">
+                            <i class="bi-send me-2"></i>Process Request
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title d-flex align-items-center mb-3">
+                            <i class="bi-lightbulb text-warning me-2"></i>Tips for Best Results
+                        </h5>
+                        <ul class="mb-0 ps-3">
+                            <li>Select the most relevant function</li>
+                            <li>Provide context and details</li>
+                            <li>Be specific about what you need</li>
+                            <li>Try different functions for complex tasks</li>
+                            <li>Check formatting for code requests</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title d-flex align-items-center mb-3">
+                            <i class="bi-info-circle text-info me-2"></i>About This Assistant
+                        </h5>
+                        <p class="mb-0">
+                            Powered by OpenAI's advanced language models, this assistant provides:
+                        </p>
+                        <ul class="mt-2 mb-0 ps-3">
+                            <li>Intelligent text processing</li>
+                            <li>Specialized function handling</li>
+                            <li>Secure and private interactions</li>
+                        </ul>
+                        <p class="mt-2 mb-0">
+                            <a href="#" class="text-decoration-none" data-bs-toggle="modal" data-bs-target="#privacyModal">
+                                <i class="bi-shield-lock me-1"></i>View Privacy Policy
+                            </a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Privacy Modal -->
+<div class="modal fade" id="privacyModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title d-flex align-items-center">
+            <i class="bi-shield-lock fs-4 me-2 text-primary"></i>Privacy Policy
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-4">
+            <h5>Your Privacy Matters</h5>
+            <p>We are committed to protecting your privacy and ensuring your data remains secure.</p>
+        </div>
+        
+        <div class="mb-4">
+            <h5>Data Handling</h5>
+            <ul>
+                <li><strong>No personal information storage</strong>: We don't collect or store personally identifiable information</li>
+                <li><strong>Input processing</strong>: Your requests are sent to OpenAI API and not stored long-term</li>
+                <li><strong>Feedback data</strong>: Anonymous feedback is stored locally for improvement purposes only</li>
+                <li><strong>No cookies</strong>: We don't use tracking cookies beyond essential session management</li>
+            </ul>
+        </div>
+        
+        <div class="mb-3">
+            <h5>Security Measures</h5>
+            <p>All data transmissions are encrypted, and our system follows security best practices.</p>
+        </div>
+        
+        <div class="alert alert-light">
+            <i class="bi-info-circle me-2"></i>For questions: 
+            <a href="mailto:privacy@inquiro.example.com" class="alert-link">privacy@inquiro.example.com</a>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Card selection functionality
+    const cards = document.querySelectorAll('.function-card');
+    const radioInputs = document.querySelectorAll('input[type="radio"][name="function"]');
+    
+    function updateCardSelection() {
+        cards.forEach(card => {
+            card.classList.remove('selected-card');
+            card.classList.remove('border-primary');
+        });
+        
+        radioInputs.forEach(input => {
+            if (input.checked) {
+                const card = input.closest('.function-card');
+                if (card) {
+                    card.classList.add('selected-card', 'border-primary');
+                }
+            }
+        });
+    }
+    
+    // Initialize selection
+    updateCardSelection();
+    
+    // Add event listeners
+    cards.forEach(card => {
+        card.addEventListener('click', function(e) {
+            // Don't process if clicked on the input itself
+            if (e.target.tagName !== 'INPUT') {
+                const radio = this.querySelector('input[type="radio"]');
+                if (radio) {
+                    radio.checked = true;
+                    updateCardSelection();
+                }
+            }
+        });
+    });
+    
+    // Character counter
+    const textarea = document.getElementById('user_input');
+    const counter = document.getElementById('char-count');
+    const MAX_CHARS = 5000;
+    
+    if (textarea && counter) {
+        // Initialize counter
+        counter.textContent = textarea.value.length;
+        
+        textarea.addEventListener('input', function() {
+            const currentLength = this.value.length;
+            counter.textContent = currentLength;
+            
+            // Enforce max length
+            if (currentLength > MAX_CHARS) {
+                this.value = this.value.substring(0, MAX_CHARS);
+                counter.textContent = MAX_CHARS;
+            }
+        });
+        
+        // Add placeholder text
+        textarea.placeholder = "Example: 'Summarize this article about renewable energy...'";
+    }
+    
+    // Form submission loading state
+    const form = document.getElementById('request-form');
+    if (form) {
+        form.addEventListener('submit', function() {
+            const submitBtn = this.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Processing...';
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,39 @@
+# Python cache files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Environment variables
+.env
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# VSCode or JetBrains IDEs
+.vscode/
+.idea/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Jupyter Notebook checkpoints (if any)
+.ipynb_checkpoints/
+
+# Compiled files
+*.so
+*.dll
+
+# Flask-specific
+instance/
+*.sqlite3
+
+# Mac/Linux system files
+*.swp
+*~
